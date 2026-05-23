@@ -1,0 +1,1 @@
+savedcmd_/home/truong/hdh_project/drivers/tcrt5000/tcrt5000_driver.mod := printf '%s\n'   tcrt5000_driver.o | awk '!x[$$0]++ { print("/home/truong/hdh_project/drivers/tcrt5000/"$$0) }' > /home/truong/hdh_project/drivers/tcrt5000/tcrt5000_driver.mod

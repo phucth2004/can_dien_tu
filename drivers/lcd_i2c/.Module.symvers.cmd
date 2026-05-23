@@ -1,0 +1,1 @@
+savedcmd_/home/truong/hdh_project/drivers/lcd_i2c/Module.symvers :=  scripts/mod/modpost -M -m       -o /home/truong/hdh_project/drivers/lcd_i2c/Module.symvers -T /home/truong/hdh_project/drivers/lcd_i2c/modules.order -i Module.symvers -e 

@@ -1,0 +1,19 @@
+/dts-v1/;
+   /plugin/;
+
+   / {
+       compatible = "ti,beaglebone", "ti,beaglebone-black";
+
+       fragment@0 {
+           target = <&i2c2>;
+           __overlay__ {
+               status = "okay";
+               clock-frequency = <100000>;
+
+               lcd: i2c_lcd@27 {
+                   compatible = "custom,i2c-lcd";
+                   reg = <0x27>;
+               };
+           };
+       };
+   };

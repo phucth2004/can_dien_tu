@@ -1,0 +1,1 @@
+savedcmd_/home/truong/hdh_project/drivers/tcrt5000/Module.symvers :=  scripts/mod/modpost -M -m       -o /home/truong/hdh_project/drivers/tcrt5000/Module.symvers -T /home/truong/hdh_project/drivers/tcrt5000/modules.order -i Module.symvers -e 

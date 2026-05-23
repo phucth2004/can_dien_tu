@@ -1,0 +1,1 @@
+savedcmd_/home/truong/hdh_project/drivers/lcd_i2c/lcd_i2c.mod := printf '%s\n'   lcd_i2c.o | awk '!x[$$0]++ { print("/home/truong/hdh_project/drivers/lcd_i2c/"$$0) }' > /home/truong/hdh_project/drivers/lcd_i2c/lcd_i2c.mod

@@ -1,0 +1,1 @@
+savedcmd_/home/truong/hdh_project/drivers/buzzer/Module.symvers :=  scripts/mod/modpost -M -m       -o /home/truong/hdh_project/drivers/buzzer/Module.symvers -T /home/truong/hdh_project/drivers/buzzer/modules.order -i Module.symvers -e 
