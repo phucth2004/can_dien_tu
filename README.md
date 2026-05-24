@@ -188,8 +188,8 @@ Bash
 killall alarm_core
 
 # Bước 2: Quan sát dòng thời gian
-# - Từ giây 1 đến 14: Hệ thống im lặng, tệp can_data.csv dừng cập nhật.
-# - Đúng giây 15: Watchdog phần cứng CPU đếm về 0, ép toàn bộ mạch reboot lập tức.
+# - Từ giây 1 đến 29: Hệ thống im lặng, tệp can_data.csv dừng cập nhật.
+# - Đúng giây 30: Watchdog phần cứng CPU đếm về 0, ép toàn bộ mạch reboot lập tức.
 # - Sau khi reboot: Nhờ có AutoStart (S99scale), hệ thống sẽ tự nạp lại và chạy bình thường.
 
 Kịch bản 2: Giả lập Kernel bị Đơ/Panic (Kiểm thử mức sâu)
@@ -200,7 +200,7 @@ Bash
 # Lệnh ép nhân Linux rơi vào trạng thái Kernel Panic ngay lập tức
 echo c > /proc/sysrq-trigger
 
-# Kết quả: Toàn bộ terminal bị đóng băng, đúng 15 giây sau mạch tự động reset cứng phần cứng.
+# Kết quả: Toàn bộ terminal bị đóng băng, đúng 30 giây sau mạch tự động reset cứng phần cứng.
 
 Các lệnh kiểm tra thông số bộ định thời Watchdog
 Bash
@@ -208,5 +208,5 @@ Bash
 # Kiểm tra xem file thiết bị quản lý Watchdog phần cứng có tồn tại trong hệ thống không
 ls -l /dev/watchdog
 
-# Đọc cấu hình thời gian Timeout (Lò xo đếm ngược) hiện tại xem có đúng 15 giây không
+# Đọc cấu hình thời gian Timeout (Lò xo đếm ngược) hiện tại xem có đúng 30 giây không
 cat /sys/class/watchdog/watchdog0/timeout
