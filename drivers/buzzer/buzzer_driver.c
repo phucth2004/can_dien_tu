@@ -17,6 +17,7 @@
 #define CTRL_MODULE_BASE          0x44E10000
 #define CONF_GPMC_A2              0x848      // Offset cho chân P9_14
 #define PWMSS_CTRL                0x664      // BẬT TIMEBASE CLOCK CHO PWM
+
 /* ================== ĐỊA CHỈ THANH GHI PWM SUBSYSTEM & EHRPWM ================== */
 #define PWMSS1_BASE               0x48302000 // Base PWM Subsystem 1
 #define PWMSS_CLKCONFIG           0x08       // Bật clock nội bộ của PWMSS
@@ -38,21 +39,21 @@ static void __iomem *ehrpwm1_virtual;
 
 /* Hàm điều khiển âm thanh còi */
 static void buzzer_set_tone(int mode) {
-    uint32_t period = 0;
+    uint16_t period = 0; // Khai báo an toàn cho thanh ghi 16-bit
     
-    // Hệ thống chạy clock 100MHz (Chu kỳ = 100.000.000 / Tần số)
+    // Hệ thống sau khi qua Prescaler /8 sẽ chạy clock 12.5MHz (12.500.000 Hz)
     if (mode == 1) {
-        // Lệnh '1': PASS -> Âm cao (2000Hz)
-        period = 50000; 
+        // Lệnh '1': PASS -> Âm cao (2000Hz): 12,500,000 / 2000 = 6250
+        period = 6250;  
     } else if (mode == 0) {
-        // Lệnh '0': FAIL -> Âm trầm (400Hz)
-        period = 250000; 
+        // Lệnh '0': FAIL -> Âm trầm (400Hz): 12,500,000 / 400 = 31250
+        period = 31250;  
     } else if (mode == 3) {
-        // Lệnh '3': SẴN SÀNG (Ting) -> Âm rất thanh, trong trẻo (3000Hz)
-        period = 33333;
+        // Lệnh '3': SẴN SÀNG (Ting) -> Âm rất thanh, trong trẻo (3000Hz): 12,500,000 / 3000 = 4166
+        period = 4166;
     } else if (mode == 4) {
-        // Lệnh '4': RESET (Bíp) -> Âm thanh tiêu chuẩn (1000Hz)
-        period = 100000;
+        // Lệnh '4': RESET (Bíp) -> Âm thanh tiêu chuẩn (1000Hz): 12,500,000 / 1000 = 12500
+        period = 12500;
     } else {
         // Lệnh '2': TẮT CÒI
         writew(0, ehrpwm1_virtual + CMPA);
@@ -65,12 +66,10 @@ static void buzzer_set_tone(int mode) {
     writew(period / 2, ehrpwm1_virtual + CMPA);
 }
 
-static int my_open(struct inode *inode, struct file *file) {
-    return 0;
-}
+static int my_open(struct inode *inode, struct file *file) { return 0; }
 
 static int my_release(struct inode *inode, struct file *file) {
-    buzzer_set_tone(2); // Tự động tắt còi khi đóng file
+    buzzer_set_tone(2); 
     return 0;
 }
 
@@ -97,67 +96,59 @@ static struct file_operations fops = {
 static int __init buzzer_driver_init(void) {
     uint32_t reg_val;
 
-    // 1. Khởi tạo Device Node tự động
+    // 1. Khởi tạo Device Node
     alloc_chrdev_region(&dev_num, 0, 1, DRIVER_NAME);
     dev_class = class_create(CLASS_NAME);
     cdev_init(&my_cdev, &fops);
     cdev_add(&my_cdev, dev_num, 1);
     device_create(dev_class, NULL, dev_num, NULL, DRIVER_NAME);
 
-    // 2. Map bộ nhớ vật lý
+    // 2. Map bộ nhớ
     cm_per_virtual   = ioremap(CM_PER_BASE, 0x4000);
     ctrl_mod_virtual = ioremap(CTRL_MODULE_BASE, 0x2000);
     pwmss1_virtual   = ioremap(PWMSS1_BASE, 0x100);
     ehrpwm1_virtual  = ioremap(EHRPWM1_BASE, 0x100);
 
-    // 3. Cấp Clock cho module PWMSS1 (Ghi 0x02)
+    // 3. Cấp Clock cho module PWMSS1
     writel(0x02, cm_per_virtual + CM_PER_EPWMSS1_CLKCTRL);
+    while ((readl(cm_per_virtual + CM_PER_EPWMSS1_CLKCTRL) & (0x3 << 16)) != 0) {}
 
-    // [QUAN TRỌNG - FIX LỖI KERNEL OOPS] 
-    // Chờ cho đến khi bit 16, 17 (IDLEST) về 0 (Module hoàn toàn tỉnh dậy)
-    while ((readl(cm_per_virtual + CM_PER_EPWMSS1_CLKCTRL) & (0x3 << 16)) != 0) {
-        // Không làm gì cả, chỉ chờ phần cứng sẵn sàng
-    }
-
-    // 4. Pinmux: Ép chân P9_14 thành Mode 6 (EHRPWM1A)
+    // 4. Pinmux & Timebase
     writel(0x06, ctrl_mod_virtual + CONF_GPMC_A2);
-
-    // 4.5. Bật Time-Base Clock cho PWMSS1 trong Control Module (Rất hay quên trên BBB)
-    // Bit 0: PWMSS0, Bit 1: PWMSS1, Bit 2: PWMSS2
     reg_val = readl(ctrl_mod_virtual + PWMSS_CTRL);
     reg_val |= (1 << 1); 
     writel(reg_val, ctrl_mod_virtual + PWMSS_CTRL);
 
-    // 5. Lúc này bộ PWM đã thức hoàn toàn, có thể truy cập an toàn mà không bị Oops
+    // 5. Bật Clock nội bộ của PWMSS
     reg_val = readl(pwmss1_virtual + PWMSS_CLKCONFIG);
     reg_val |= (1 << 8); 
     writel(reg_val, pwmss1_virtual + PWMSS_CLKCONFIG);
 
-    // 6. Cấu hình thanh ghi EHRPWM để phát xung
-    // TBCTL: Prescaler = 1 (Tốc độ tối đa), Up-count mode (0x00)
-    writew(0x0000, ehrpwm1_virtual + TBCTL);
+    // ==========================================================
+    // 6. FIX LỖI TIMEBASE CONTROL (TBCTL) - Bật Bộ chia tần (Prescaler)
+    // ==========================================================
+    // Cấu hình: CLKDIV = /8 (0x3 << 10), HSPCLKDIV = /1 (0x0), Up-count mode (0x0)
+    // Giá trị cần ghi = 0x0C00. Điều này giúp xung nhịp hạ từ 100MHz xuống 12.5MHz.
+    writew(0x0C00, ehrpwm1_virtual + TBCTL);
+    // ==========================================================
     
     // AQCTLA: Kéo HIGH khi Counter = 0, kéo LOW khi Counter = CMPA
-    // Đạt 0 thì Set (bit 0-1 = 0x2), Đạt CMPA thì Clear (bit 4-5 = 0x1) -> 0x0012
     writew(0x0012, ehrpwm1_virtual + AQCTLA);
 
-    // Khởi tạo ban đầu: Tắt còi
     buzzer_set_tone(2);
 
-    pr_info("Buzzer PWM Driver: Khoi tao thanh cong tren chan P9_14\n");
+    pr_info("Buzzer PWM Driver: Khoi tao thanh cong tren chan P9_14 (Voi Prescaler /8)\n");
     return 0;
 }
 
 static void __exit buzzer_driver_exit(void) {
-    buzzer_set_tone(2); // Tắt còi
+    buzzer_set_tone(2); 
 
-    // Hủy map bộ nhớ
     iounmap(ehrpwm1_virtual);
     iounmap(pwmss1_virtual);
     iounmap(ctrl_mod_virtual);
     iounmap(cm_per_virtual);
 
-    // Hủy Device
     device_destroy(dev_class, dev_num);
     cdev_del(&my_cdev);
     class_destroy(dev_class);
@@ -171,4 +162,4 @@ module_exit(buzzer_driver_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Ban");
-MODULE_DESCRIPTION("Register-level EHRPWM Driver for Buzzer");
+MODULE_DESCRIPTION("Register-level EHRPWM Driver for Buzzer - Fix Overflow");

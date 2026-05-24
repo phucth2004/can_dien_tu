@@ -11,7 +11,7 @@
 #define CLASS_NAME  "bbb_lcd_class"
 
 /* Bitmask cho PCF8574 */
-#define LCD_BL   0x08   /* Backlight bit */
+#define LCD_BL   0x08   /* Backlight bit (Mặc định ON) */
 #define LCD_EN   0x04   /* Enable bit    */
 #define LCD_RW   0x02   /* Read/Write bit (luôn = 0) */
 #define LCD_RS   0x01   /* Register Select: 0=cmd, 1=data */
@@ -23,12 +23,23 @@ static struct i2c_client *lcd_client;
 
 static DEFINE_MUTEX(lcd_mutex);
 
+/* Biến lưu trạng thái đèn nền hiện tại */
+static u8 current_bl_state = LCD_BL; 
+
+/* Hàm cập nhật ngay lập tức trạng thái đèn nền ra I2C mà không sinh xung EN */
+static void lcd_update_backlight(void)
+{
+    u8 data = current_bl_state;
+    i2c_master_send(lcd_client, &data, 1);
+}
+
 /* --- FIX GÓI XUNG EN ĐỂ TRÁNH TIMEOUT I2C --- */
 static void lcd_send_4bit(u8 byte_with_flags)
 {
     u8 nibble = byte_with_flags & 0xF0;          
     u8 rs     = byte_with_flags & LCD_RS;        
-    u8 base   = nibble | LCD_BL | rs;            
+    /* SỬ DỤNG BIẾN current_bl_state THAY VÌ LCD_BL CỨNG */
+    u8 base   = nibble | current_bl_state | rs;            
     u8 buf[3];
 
     buf[0] = base;              /* EN=0, đặt data lên bus */
@@ -40,7 +51,6 @@ static void lcd_send_4bit(u8 byte_with_flags)
     usleep_range(500, 1000);
 }
 
-/* Hàm này PHẢI nằm dưới lcd_send_4bit và trên my_write */
 static void lcd_send_byte(u8 val, u8 mode)
 {
     u8 high = (val & 0xF0) | (mode & LCD_RS);
@@ -64,6 +74,25 @@ static ssize_t my_write(struct file *file, const char __user *user_buf,
         return -EFAULT;
 
     kernel_buf[n] = '\0';
+
+    /* ========================================================= */
+    /* BẮT LỆNH ĐIỀU KHIỂN ĐÈN NỀN TỪ USER-SPACE                 */
+    /* ========================================================= */
+    if (strncmp(kernel_buf, "[BL_OFF]", 8) == 0) {
+        mutex_lock(&lcd_mutex);
+        current_bl_state = 0x00; // Xóa bit đèn nền
+        lcd_update_backlight();
+        mutex_unlock(&lcd_mutex);
+        return n;
+    }
+    if (strncmp(kernel_buf, "[BL_ON]", 7) == 0) {
+        mutex_lock(&lcd_mutex);
+        current_bl_state = LCD_BL; // Set bit đèn nền
+        lcd_update_backlight();
+        mutex_unlock(&lcd_mutex);
+        return n;
+    }
+    /* ========================================================= */
 
     mutex_lock(&lcd_mutex);
 
@@ -106,6 +135,10 @@ static void lcd_init_hardware(void)
     lcd_send_byte(0x01, 0x00); msleep(3);
     lcd_send_byte(0x06, 0x00); usleep_range(50, 100);
     lcd_send_byte(0x0C, 0x00); usleep_range(50, 100);
+    
+    // Bật đèn nền mặc định khi khởi tạo xong
+    current_bl_state = LCD_BL;
+    lcd_update_backlight();
 }
 
 static int lcd_probe(struct i2c_client *client)
@@ -133,7 +166,10 @@ static void lcd_remove(struct i2c_client *client)
     mutex_lock(&lcd_mutex);
     lcd_send_byte(0x01, 0x00);
     msleep(2);
-    lcd_send_byte(0x08, 0x00);
+    
+    /* Tắt hẳn đèn và chữ khi remove module */
+    current_bl_state = 0x00;
+    lcd_send_byte(0x08, 0x00); 
     mutex_unlock(&lcd_mutex);
 
     device_destroy(dev_class, dev_num);
@@ -192,4 +228,4 @@ module_exit(my_driver_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Ban");
-MODULE_DESCRIPTION("BBB I2C LCD Driver - Final Full Sync");
+MODULE_DESCRIPTION("BBB I2C LCD Driver - BL Control");

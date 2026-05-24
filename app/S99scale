@@ -1,54 +1,48 @@
-#!/bin/sh
-# File: /etc/init.d/S99scale
-# Mo ta: Tu dong nap Driver va chay he thong can
-
 case "$1" in
   start)
     echo "=== KHOI DONG HE THONG CAN TU DONG ==="
     
-    # 1. Di chuyen vao thu muc chua file cua ban (Gia su la /root)
     cd /root
 
-    # 2. Nap Driver vao Kernel
+    # 1. Nap Driver
     insmod lcd_i2c.ko
     insmod buzzer_driver.ko
     insmod hx711_driver.ko
     insmod tcrt5000_driver.ko
     echo i2c_lcd 0x27 > /sys/bus/i2c/devices/i2c-2/new_device
 
-    # 3. Don dep file thiet bi cu tren RAM
+    # 2. Tao file thiet bi
     rm -f /dev/hx711 /dev/my_buzzer /dev/my_bbb_lcd /dev/tcrt5000
-
-    # 4. Tu dong quet Major Number tu he dieu hanh va tao file 
     MAJOR_HX=$(awk '$2=="hx711" {print $1}' /proc/devices)
     MAJOR_BZ=$(awk '$2=="my_buzzer" {print $1}' /proc/devices)
     MAJOR_LCD=$(awk '$2=="my_bbb_lcd" {print $1}' /proc/devices)
     MAJOR_IR=$(awk '$2=="tcrt5000" {print $1}' /proc/devices)
-
     mknod /dev/hx711 c $MAJOR_HX 0
     mknod /dev/my_buzzer c $MAJOR_BZ 0
     mknod /dev/my_bbb_lcd c $MAJOR_LCD 0
     mknod /dev/tcrt5000 c $MAJOR_IR 0
-
-    # 5. Cap quyen phan cung
     chmod 666 /dev/hx711 /dev/my_buzzer /dev/my_bbb_lcd /dev/tcrt5000
 
-    # 6. Chay Loi trung tam o che do ngam va tu dong lay PID ($!)
+    # 3. Cau hinh mang de reach relay_server
+    ifconfig eth0 192.168.4.3 netmask 255.255.255.0 up
+    route add default gw 192.168.4.2
+    echo "nameserver 8.8.8.8" > /etc/resolv.conf
+
+    # 4. Chay alarm_core va sensor_node
     ./alarm_core &
     ALARM_PID=$!
-    
-    # Cho 2 giay de Loi trung tam khoi tao xong Shared Memory va tru bi
     sleep 2
-
-    # 7. Chay Mat than voi PID vua lay duoc
     ./sensor_node $ALARM_PID &
-    
+
     echo "=== HE THONG DA SAN SANG ==="
     ;;
+
   stop)
     echo "=== DUNG HE THONG ==="
     killall sensor_node alarm_core
+    echo "Da tat toan bo tien trinh."
     ;;
+
   *)
     echo "Usage: $0 {start|stop}"
     exit 1

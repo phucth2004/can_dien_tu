@@ -38,11 +38,18 @@ __used __section("__versions") = {
 	{ 0xb1ad28e0, "__gnu_mcount_nc" },
 	{ 0x92997ed8, "_printk" },
 	{ 0xefd6cf06, "__aeabi_unwind_cpp_pr0" },
-	{ 0x69e30fad, "__register_chrdev" },
-	{ 0xe97c4103, "ioremap" },
 	{ 0x822137e2, "arm_heavy_mb" },
 	{ 0xedc03953, "iounmap" },
-	{ 0x6bc3fbc0, "__unregister_chrdev" },
+	{ 0xf678775b, "device_destroy" },
+	{ 0xf8d3d187, "cdev_del" },
+	{ 0xb5b2d70b, "class_destroy" },
+	{ 0x6091b333, "unregister_chrdev_region" },
+	{ 0xe3ec2f2b, "alloc_chrdev_region" },
+	{ 0x17861825, "class_create" },
+	{ 0xa234810a, "cdev_init" },
+	{ 0x6213c1c5, "cdev_add" },
+	{ 0x630792ca, "device_create" },
+	{ 0xe97c4103, "ioremap" },
 	{ 0xc3055d20, "usleep_range_state" },
 	{ 0x8e865d3c, "arm_delay_ops" },
 	{ 0x51a910c0, "arm_copy_to_user" },
@@ -53,4 +60,4 @@ __used __section("__versions") = {
 MODULE_INFO(depends, "");
 
 
-MODULE_INFO(srcversion, "5FB8DB04E16C72F67F20AA4");
+MODULE_INFO(srcversion, "28572AAC3BD43ADC994F964");
